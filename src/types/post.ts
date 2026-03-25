@@ -30,11 +30,11 @@ export type PostActions = {
 
 export type PostStore = PostState & PostActions;
 
-export type PostService = {
-  getPosts: () => Promise<Post[]>;
-  addPost: (post: CreatePost) => Promise<Post>;
-  deletePost: (id: number) => Promise<void>;
-};
+// export type PostService = {
+//   getPosts: () => Promise<Post[]>;
+//   addPost: (post: CreatePost) => Promise<Post>;
+//   deletePost: (id: number) => Promise<void>;
+// };
 
 // export type AppButtonProps = {
 //   children: React.ReactNode;
@@ -59,6 +59,7 @@ export type AppInputProps = {
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   accept?: string;
   type?: string;
+  name?: string;
 };
 
 export type AppCardProps = {
@@ -84,6 +85,14 @@ export type AddPostProps = {
 
 export type UpdatePost = CreatePost & {
   id: number;
+};
+
+export type PostService = {
+  getPosts: () => Promise<Post[]>;
+  getPost: (id: string) => Promise<Post | null>;
+  addPost: (post: CreatePost) => Promise<Post>;
+  deletePost: (id: number) => Promise<void>;
+  updatePost: (post: UpdatePost) => Promise<Post>;
 };
 
 // export type Store = PostState & PostActions;
