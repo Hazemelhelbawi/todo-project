@@ -1,10 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { usePostStore } from "@/store/postStore";
+import {
+  uploadImageToCloudinary,
+  getOptimizedImageUrl,
+} from "@/services/cloudinaryService";
 import AppInput from "@/ui/AppInput";
 import AppButton from "@/ui/AppButton";
-import Image from "next/image";
 
 type AddPostProps = {
   onSuccess?: () => void;
@@ -20,46 +24,64 @@ export default function AddPost({ onSuccess }: AddPostProps) {
     image: "",
   });
 
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
+
   const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-
-    reader.onloadend = () => {
-      setForm((prev) => ({
-        ...prev,
-        image: reader.result as string,
-      }));
-    };
-
-    reader.readAsDataURL(file);
+    setSelectedFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
   };
 
   const handleSubmit = async () => {
     if (!form.title.trim()) return;
 
-    await addPost(form);
+    try {
+      setUploading(true);
 
-    setForm({
-      title: "",
-      description: "",
-      content: "",
-      image: "",
-    });
+      let imageUrl = form.image;
 
-    onSuccess?.();
+      if (selectedFile) {
+        const uploadedUrl = await uploadImageToCloudinary(selectedFile);
+        imageUrl = getOptimizedImageUrl(uploadedUrl, 800);
+      }
+
+      await addPost({
+        ...form,
+        image: imageUrl,
+      });
+
+      setForm({
+        title: "",
+        description: "",
+        content: "",
+        image: "",
+      });
+
+      setSelectedFile(null);
+      setPreviewUrl("");
+      onSuccess?.();
+    } catch (err) {
+      console.error(err);
+      alert("Upload failed");
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
     <div className="space-y-4">
-      {form.image && (
+      {previewUrl && (
         <Image
           width={500}
           height={300}
-          src={form.image}
+          src={previewUrl}
           alt="preview"
           className="h-40 w-full rounded-xl object-cover"
+          unoptimized
         />
       )}
 
@@ -96,10 +118,11 @@ export default function AddPost({ onSuccess }: AddPostProps) {
 
       <AppButton
         type="button"
-        className="rounded-xl bg-blue-600 px-4 py-2 text-white"
+        className="rounded-xl bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
         onClick={handleSubmit}
+        disabled={uploading}
       >
-        Save Post
+        {uploading ? "Uploading..." : "Save Post"}
       </AppButton>
     </div>
   );

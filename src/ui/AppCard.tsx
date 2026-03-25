@@ -1,9 +1,13 @@
 import { useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { AppCardProps } from "@/types/post";
 import AppButton from "./AppButton";
 import AppInput from "./AppInput";
-import Image from "next/image";
-import Link from "next/link";
+import {
+  uploadImageToCloudinary,
+  getOptimizedImageUrl,
+} from "@/services/cloudinaryService";
 
 const AppCard = ({
   image,
@@ -15,6 +19,9 @@ const AppCard = ({
   onEdit,
 }: AppCardProps) => {
   const [isEditing, setIsEditing] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState(image);
+  const [uploading, setUploading] = useState(false);
 
   const [form, setForm] = useState({
     title,
@@ -23,81 +30,105 @@ const AppCard = ({
     image,
   });
 
-  const handleSave = () => {
-    onEdit?.({
-      id,
-      ...form,
-    });
+  const handleSave = async () => {
+    try {
+      setUploading(true);
 
-    setIsEditing(false);
+      let imageUrl = form.image;
+
+      if (selectedFile) {
+        const uploadedUrl = await uploadImageToCloudinary(selectedFile);
+        imageUrl = getOptimizedImageUrl(uploadedUrl, 800);
+      }
+
+      await onEdit?.({
+        id,
+        ...form,
+        image: imageUrl,
+      });
+
+      setForm((prev) => ({
+        ...prev,
+        image: imageUrl,
+      }));
+
+      setSelectedFile(null);
+      setPreviewUrl(imageUrl);
+      setIsEditing(false);
+    } catch (error) {
+      console.error(error);
+      alert("Failed to update post image");
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
-    <div className="bg-white text-black rounded-2xl shadow-lg p-5">
+    <div className="rounded-2xl bg-white p-5 text-black shadow-lg">
       {isEditing ? (
         <>
-          {form.image && (
+          {previewUrl && (
             <Image
               alt="image"
               width={200}
               height={200}
-              src={form.image}
-              className="w-full h-32 object-contain rounded mb-2"
+              src={previewUrl}
+              className="mb-2 h-32 w-full rounded object-contain"
+              unoptimized
             />
           )}
-          <div className="flex flex-col pb-2 gap-4">
+
+          <div className="flex flex-col gap-4 pb-2">
             <AppInput
-              className="w-full rounded-xl border border-gray-300 p-3  outline-none"
+              className="w-full rounded-xl border border-gray-300 p-3 outline-none"
               type="file"
               accept="image/*"
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                 const file = e.target.files?.[0];
-
                 if (!file) return;
 
-                const reader = new FileReader();
-
-                reader.onloadend = () => {
-                  setForm((prev) => ({
-                    ...prev,
-                    image: reader.result as string,
-                  }));
-                };
-
-                reader.readAsDataURL(file);
+                setSelectedFile(file);
+                setPreviewUrl(URL.createObjectURL(file));
               }}
             />
 
             <AppInput
-              className="w-full rounded-xl border border-gray-300 p-3  outline-none"
+              className="w-full rounded-xl border border-gray-300 p-3 outline-none"
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
             />
+
             <AppInput
-              className="w-full rounded-xl border border-gray-300 p-3  outline-none"
+              className="w-full rounded-xl border border-gray-300 p-3 outline-none"
               value={form.description}
               onChange={(e) =>
                 setForm({ ...form, description: e.target.value })
               }
             />
+
             <AppInput
-              className="w-full rounded-xl border border-gray-300 p-3  outline-none"
+              className="w-full rounded-xl border border-gray-300 p-3 outline-none"
               value={form.content}
               onChange={(e) => setForm({ ...form, content: e.target.value })}
             />
           </div>
 
-          <div className=" flex items-center justify-between">
+          <div className="flex items-center justify-between">
             <AppButton
-              className="bg-green-500 text-white px-3 py-1 mr-2"
+              className="mr-2 bg-green-500 px-3 py-1 text-white"
               onClick={handleSave}
+              disabled={uploading}
             >
-              {" "}
-              Save
+              {uploading ? "Saving..." : "Save"}
             </AppButton>
+
             <AppButton
-              className="bg-amber-500 text-white px-3 py-1 mr-2"
-              onClick={() => setIsEditing(false)}
+              className="mr-2 bg-amber-500 px-3 py-1 text-white"
+              onClick={() => {
+                setIsEditing(false);
+                setPreviewUrl(form.image);
+                setSelectedFile(null);
+              }}
             >
               Cancel
             </AppButton>
@@ -112,16 +143,16 @@ const AppCard = ({
                 height={200}
                 src={image}
                 alt="post"
-                className="w-full h-40 object-contain rounded mb-3"
+                className="mb-3 h-40 w-full rounded object-contain"
               />
             )}
             <h3 className="text-lg font-bold text-black">{title}</h3>
             <p className="text-sm text-black">{description}</p>
             <p className="text-sm text-black">{content}</p>
           </Link>
-          <div className="flex justify-end gap-2 mt-4">
-            <AppButton onClick={() => setIsEditing(true)}>✏️</AppButton>
 
+          <div className="mt-4 flex justify-end gap-2">
+            <AppButton onClick={() => setIsEditing(true)}>✏️</AppButton>
             <AppButton onClick={() => onDelete?.(id)}>🗑️</AppButton>
           </div>
         </>
